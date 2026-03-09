@@ -1,33 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Check } from 'lucide-react'
-
-const PLANS = [
-  {
-    name: 'Free',
-    price: 0,
-    description: 'Get started',
-    features: ['5 generations/month', 'All platforms (LinkedIn, Twitter, TikTok)', 'Hook generator', 'Tone presets'],
-    priceId: null as string | null,
-    popular: false,
-  },
-  {
-    name: 'Creator',
-    price: 15,
-    description: 'For active creators',
-    features: ['100 generations/month', 'All platforms', 'Hook generator', 'Tone presets', 'Content multiplier (A/B/C)', 'Priority support'],
-    priceId: process.env.NEXT_PUBLIC_STRIPE_CREATOR_PRICE_ID ?? null,
-    popular: true,
-  },
-  {
-    name: 'Pro',
-    price: 29,
-    description: 'For power users',
-    features: ['Unlimited generations', 'All platforms', 'Hook generator', 'Tone presets', 'Content multiplier (A/B/C)', 'Priority support', 'API access (coming soon)'],
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID ?? null,
-    popular: false,
-  },
-]
+import type { Plan } from '@/lib/types'
 
 interface BillingProfile {
   plan: string
@@ -37,7 +11,15 @@ interface BillingProfile {
 
 export default function BillingContent({ profile }: { profile: BillingProfile | null }) {
   const [loading, setLoading] = useState<string | null>(null)
+  const [plans, setPlans] = useState<Plan[]>([])
   const currentPlan = profile?.plan || 'free'
+
+  useEffect(() => {
+    fetch('/api/plans')
+      .then((r) => r.json())
+      .then(({ plans }) => setPlans(plans))
+      .catch(console.error)
+  }, [])
 
   const handleUpgrade = async (priceId: string) => {
     setLoading(priceId)
@@ -77,7 +59,7 @@ export default function BillingContent({ profile }: { profile: BillingProfile | 
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {PLANS.map((plan) => {
+        {plans.map((plan) => {
           const isCurrentPlan = currentPlan === plan.name.toLowerCase()
           return (
             <div
