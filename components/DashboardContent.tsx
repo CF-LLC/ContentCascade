@@ -72,7 +72,7 @@ export default function DashboardContent({ generations, profile }: { generations
                 onClick={() => setExpandedId(expandedId === gen.id ? null : gen.id)}
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{gen.input_text.slice(0, 120)}...</p>
+                  <p className="text-sm font-medium text-gray-900 truncate">{gen.input_text}</p>
                   <div className="flex items-center gap-3 mt-2">
                     <span className="inline-flex items-center gap-1 text-xs text-gray-500">
                       <Clock className="h-3 w-3" />

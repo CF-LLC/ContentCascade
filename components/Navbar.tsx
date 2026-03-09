@@ -2,16 +2,15 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Zap } from 'lucide-react'
 
 export default function Navbar() {
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const router = useRouter()
-  const supabaseRef = useRef(createClient())
 
   useEffect(() => {
-    const supabase = supabaseRef.current
+    const supabase = createClient()
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null)
@@ -20,7 +19,8 @@ export default function Navbar() {
   }, [])
 
   const handleSignOut = async () => {
-    await supabaseRef.current.auth.signOut()
+    const supabase = createClient()
+    await supabase.auth.signOut()
     router.push('/')
     router.refresh()
   }

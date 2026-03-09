@@ -6,6 +6,15 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const GENERATION_LIMITS: Record<string, number> = { free: 5, creator: 100, pro: Infinity }
 
+function parseJsonResponse(text: string | null | undefined, fallback: unknown): unknown {
+  if (!text) return fallback
+  try {
+    return JSON.parse(text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
+  } catch {
+    return fallback
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -27,10 +36,12 @@ export async function POST(request: NextRequest) {
 
     const periodStart = new Date(profile?.billing_period_start || Date.now())
     const now = new Date()
-    const monthsSinceStart = (now.getFullYear() - periodStart.getFullYear()) * 12 + (now.getMonth() - periodStart.getMonth())
+    // Add exactly one calendar month to billing period start for accurate comparison
+    const nextPeriodStart = new Date(periodStart)
+    nextPeriodStart.setMonth(nextPeriodStart.getMonth() + 1)
     
     let currentUsed = used
-    if (monthsSinceStart >= 1) {
+    if (now >= nextPeriodStart) {
       await supabase.from('profiles').update({ 
         generations_used_this_month: 0,
         billing_period_start: now.toISOString()
@@ -143,37 +154,20 @@ Content: ${inputText.slice(0, 2000)}`
     let twitter: { a: string[]; b: string[]; c: string[] } = { a: [], b: [], c: [] }
     let tiktok = { a: '', b: '', c: '' }
 
-    try {
-      const hooksText = hooksResult.choices[0].message.content || '[]'
-      hooks = JSON.parse(hooksText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
-    } catch (e) {
-      console.error('Failed to parse hooks JSON:', e)
-      hooks = ['Great insight worth sharing', 'This changed how I think about things']
-    }
+    const defaultHooks = [
+      'Most people get this completely wrong.',
+      'Here\'s what nobody tells you about this.',
+      'I learned this the hard way so you don\'t have to.',
+      'Stop doing this if you want to succeed.',
+      'The uncomfortable truth about this topic.',
+      'This changed everything for me.',
+      'Why most people fail at this.',
+    ]
 
-    try {
-      const linkedinText = linkedinResult.choices[0].message.content || '{}'
-      linkedin = JSON.parse(linkedinText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
-    } catch (e) {
-      console.error('Failed to parse linkedin JSON:', e)
-      linkedin = { a: 'Generation failed', b: 'Generation failed', c: 'Generation failed' }
-    }
-
-    try {
-      const twitterText = twitterResult.choices[0].message.content || '{}'
-      twitter = JSON.parse(twitterText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
-    } catch (e) {
-      console.error('Failed to parse twitter JSON:', e)
-      twitter = { a: [], b: [], c: [] }
-    }
-
-    try {
-      const tiktokText = tiktokResult.choices[0].message.content || '{}'
-      tiktok = JSON.parse(tiktokText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
-    } catch (e) {
-      console.error('Failed to parse tiktok JSON:', e)
-      tiktok = { a: 'Generation failed', b: 'Generation failed', c: 'Generation failed' }
-    }
+    hooks = (parseJsonResponse(hooksResult.choices[0].message.content, defaultHooks) as string[]) || defaultHooks
+    linkedin = (parseJsonResponse(linkedinResult.choices[0].message.content, { a: 'Generation failed', b: 'Generation failed', c: 'Generation failed' }) as typeof linkedin) || { a: 'Generation failed', b: 'Generation failed', c: 'Generation failed' }
+    twitter = (parseJsonResponse(twitterResult.choices[0].message.content, { a: [], b: [], c: [] }) as typeof twitter) || { a: [], b: [], c: [] }
+    tiktok = (parseJsonResponse(tiktokResult.choices[0].message.content, { a: 'Generation failed', b: 'Generation failed', c: 'Generation failed' }) as typeof tiktok) || { a: 'Generation failed', b: 'Generation failed', c: 'Generation failed' }
 
     await supabase.from('generations').insert({
       user_id: user.id,
